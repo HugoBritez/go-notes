@@ -48,7 +48,7 @@ func main() {
 
 	content, _ := os.ReadFile(fullPath)
 
-	p := tea.NewProgram(ui.InitialModel(fullPath, string(content)))
+	p := tea.NewProgram(ui.InitialModel(fullPath, string(content)), tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alerta, hubo un error en la interfaz: %v", err)
