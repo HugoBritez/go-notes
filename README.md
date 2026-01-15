@@ -17,19 +17,33 @@ Escrito totalmente en **Go**, utiliza el ecosistema **Charm** (Bubble Tea, Lip G
 - **Path Discovery**: Crea estructuras de carpetas dinámicamente al vuelo (`note facu/algebra/clase1`).
 - **Zero Lock-in**: Tus notas son archivos `.md` planos estándar.
 
-## 🚀 Instalación y Uso
+## 📦 Instalación
 
-1. **Clona el repositorio:**
-   ```bash
-   git clone https://github.com/tu-usuario/go-notes.git
-   cd go-notes
-   ```
+### Opción 1: Homebrew (Recomendada) 🍺
+La forma más rápida para usuarios de macOS y Linux.
 
-2. **Ejecuta directamente:**
-   ```bash
-   go run main.go [ruta/de/tu/nota]
-   ```
-   *Ejemplo:* `go run main.go ideas/app_revolutionaria`
+```bash
+brew tap HugoBritez/go-notes
+brew install go-notes
+```
+
+### Opción 2: Compilación Manual 🛠️
+Si prefieres instalar desde el código fuente:
+
+```bash
+git clone https://github.com/HugoBritez/go-notes.git
+cd go-notes
+sudo make install
+```
+
+## 🚀 Uso
+
+Una vez instalado, usa el comando `note` desde cualquier lugar:
+
+```bash
+note ideas/startup_millonaria
+```
+*Si el archivo o las carpetas no existen, `go-notes` las creará automáticamente.*
 
 ## ⌨️ Atajos de Teclado
 
