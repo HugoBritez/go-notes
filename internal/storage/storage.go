@@ -19,7 +19,7 @@ func CreateNotePath(root string, inputPath string) (string, error) {
 
 	err := os.MkdirAll(dir, 0o755)
 	if err != nil {
-		return "", fmt.Errorf("Error a; crear carpetas: %w", err)
+		return "", fmt.Errorf("Error al crear carpetas: %w", err)
 	}
 
 	return fullPath, nil

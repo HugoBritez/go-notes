@@ -6,6 +6,9 @@ import (
 
 	"go-notes/internal/config"
 	"go-notes/internal/storage"
+	"go-notes/internal/ui"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
@@ -42,6 +45,15 @@ func main() {
 		fmt.Printf("Nueva nota creada en... %s\n", fullPath)
 	}
 	fmt.Printf("Abriendo nota: %s\n", fullPath)
+
+	content, _ := os.ReadFile(fullPath)
+
+	p := tea.NewProgram(ui.InitialModel(fullPath, string(content)))
+
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("Alerta, hubo un error en la interfaz: %v", err)
+		os.Exit(1)
+	}
 }
 
 func handleInit() {
