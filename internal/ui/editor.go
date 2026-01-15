@@ -26,63 +26,64 @@ const (
 var (
 	// Estilo base de la aplicación
 	appStyle = lipgloss.NewStyle().
-			Padding(0)
+		Padding(0)
 
 	// 1. Header Inmersivo
 	headerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorEmerald)).
-			Background(lipgloss.Color(colorCarbon)).
-			Bold(true).
-			Padding(0, 1).
-			BorderBottom(true).
-			BorderStyle(lipgloss.ThickBorder()).
-			BorderForeground(lipgloss.Color(colorHighlight))
+		Foreground(lipgloss.Color(colorEmerald)).
+		Background(lipgloss.Color(colorCarbon)).
+		Bold(true).
+		Padding(0, 1).
+		BorderBottom(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color(colorHighlight))
 
 	// 2. Styles for Manual Editor (Minimalist)
 	cursorLineStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color(colorHighlight)).
-			Foreground(lipgloss.Color("#FFFFFF"))
+		Background(lipgloss.Color(colorHighlight)).
+		Foreground(lipgloss.Color("#FFFFFF"))
 
 	placeholderStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(colorGray))
+		Foreground(lipgloss.Color(colorGray))
 
 	cursorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorPastelYellow))
+		Foreground(lipgloss.Color(colorPastelYellow))
 
 	// 3. Footer Styles (LazyVim / Airline inspired)
 	statusBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorLightGray)).
-			Background(lipgloss.Color(colorDarkGray))
+		Foreground(lipgloss.Color(colorLightGray)).
+		Background(lipgloss.Color(colorDarkGray))
 
 	modeStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorCarbon)).
-			Background(lipgloss.Color(colorEmerald)).
-			Bold(true).
-			Padding(0, 1).
-			MarginRight(1)
+		Foreground(lipgloss.Color(colorCarbon)).
+		Background(lipgloss.Color(colorEmerald)).
+		Bold(true).
+		Padding(0, 1).
+		MarginRight(1)
 
 	shortcutStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorEmerald)).
-			Bold(true)
+		Foreground(lipgloss.Color(colorEmerald)).
+		Bold(true)
 
 	positionStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorPastelYellow)).
-			Background(lipgloss.Color(colorDarkGray)).
-			Padding(0, 1).
-			MarginLeft(1)
+		Foreground(lipgloss.Color(colorPastelYellow)).
+		Background(lipgloss.Color(colorDarkGray)).
+		Padding(0, 1).
+		MarginLeft(1)
 )
 
 // --- Modelo ---
 
 type EditorModel struct {
-	textarea   textarea.Model
-	viewport   viewport.Model
-	renderer   *glamour.TermRenderer
-	filePath   string
-	err        error
-	width      int
-	height     int
-	renderMode bool
+	textarea     textarea.Model
+	viewport     viewport.Model
+	renderer     *glamour.TermRenderer
+	filePath     string
+	err          error
+	notification string // Mensaje temporal para el usuario
+	width        int
+	height       int
+	renderMode   bool
 }
 
 func InitialModel(path string, content string) EditorModel {
@@ -132,7 +133,7 @@ func (m EditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 		// Ajuste de layout dinámico
-		headerHeight := 2
+	headerHeight := 2
 		footerHeight := 2
 		newHeight := msg.Height - headerHeight - footerHeight
 
@@ -158,6 +159,9 @@ func (m EditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		// Limpiar notificación al escribir
+		m.notification = ""
+
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -172,8 +176,12 @@ func (m EditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			err := os.WriteFile(m.filePath, []byte(m.textarea.Value()), 0o644)
 			if err != nil {
 				m.err = err
+				m.notification = "❌ Error al guardar"
+			} else {
+				m.notification = "✅ Archivo Guardado"
 			}
-			return m, tea.Quit
+			// No salimos (tea.Quit), solo notificamos
+			return m, nil
 		case "ctrl+p":
 			m.renderMode = !m.renderMode
 			if m.renderMode {
@@ -194,12 +202,15 @@ func (m EditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "ctrl+t":
 				m.textarea.InsertString("# ")
+				return m, nil // Stop propagation
 			case "ctrl+l":
 				m.textarea.InsertString("- ")
+				return m, nil // Stop propagation
 			case "ctrl+k":
 				m.textarea.InsertString("\n```go\n\n```") // Default to go
 				m.textarea.CursorUp()
 				m.textarea.CursorUp()
+				return m, nil // Stop propagation
 			}
 		}
 	}
@@ -242,37 +253,49 @@ func (m EditorModel) View() string {
 	posText := fmt.Sprintf("Ln %d  %d%%", cursorRow, int(float64(cursorRow)/float64(totalLines)*100))
 	position := positionStyle.Render(posText)
 	
-	baseShortcuts := fmt.Sprintf("%s Guardar %s Salir %s Vista",
-		shortcutStyle.Render("Ctrl+S"),
-		shortcutStyle.Render("Esc"),
-		shortcutStyle.Render("Ctrl+P"),
-	)
+	// Área Central del Footer (Notificaciones o Atajos)
+	var centerContent string
 	
-	var extraShortcuts string
-	if !m.renderMode {
-		extraShortcuts = fmt.Sprintf(" | %s Título %s Lista %s Código",
-			shortcutStyle.Render("^T"),
-			shortcutStyle.Render("^L"),
-			shortcutStyle.Render("^K"),
+	if m.notification != "" {
+		// Mostrar Notificación Prioritaria
+		centerContent = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorEmerald)).
+			Bold(true).
+			Render(m.notification)
+	} else {
+		// Mostrar Atajos
+		baseShortcuts := fmt.Sprintf("%s Guardar %s Salir %s Vista",
+			shortcutStyle.Render("Ctrl+S"),
+			shortcutStyle.Render("Esc"),
+			shortcutStyle.Render("Ctrl+P"),
 		)
+		
+		var extraShortcuts string
+		if !m.renderMode {
+			extraShortcuts = fmt.Sprintf(" | %s Título %s Lista %s Código",
+				shortcutStyle.Render("^T"),
+				shortcutStyle.Render("^L"),
+				shortcutStyle.Render("^K"),
+			)
+		}
+		centerContent = baseShortcuts + extraShortcuts
 	}
 
-	// Layout del Footer: Mode | File ... Shortcuts ... Position
-	// Calculamos el espacio disponible para los atajos para evitar overflow
-	// Usamos lipgloss.PlaceHorizontal para un layout fluido
-	
+	// Layout del Footer: Mode | File ... Center ... Position
 	leftSide := lipgloss.JoinHorizontal(lipgloss.Center, mode, fileInfo)
-	rightSide := lipgloss.JoinHorizontal(lipgloss.Center, baseShortcuts, extraShortcuts, position)
 	
 	// Espaciador flexible
-	gap := m.width - lipgloss.Width(leftSide) - lipgloss.Width(rightSide)
-	if gap < 0 { gap = 0 }
-	spacer := statusBarStyle.Width(gap).Render("")
+	// Calculamos el espacio restante para centrar el contenido o simplemente rellenar
+	availWidth := m.width - lipgloss.Width(leftSide) - lipgloss.Width(position)
+	if availWidth < 0 { availWidth = 0 }
+	
+	// Renderizamos el contenido central en el medio del espacio disponible
+	centerArea := statusBarStyle.Width(availWidth).Align(lipgloss.Center).Render(centerContent)
 
 	footer := lipgloss.JoinHorizontal(lipgloss.Center, 
 		statusBarStyle.Render(leftSide), 
-		spacer, 
-		statusBarStyle.Render(rightSide),
+		centerArea, 
+		statusBarStyle.Render(position),
 	)
 
 	if m.err != nil {
