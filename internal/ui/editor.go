@@ -3,8 +3,11 @@ package ui
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
@@ -16,7 +19,9 @@ import (
 const (
 	colorCarbon       = "#1a1a1a"
 	colorEmerald      = "#04B575"
+	colorBlue         = "#51AFEF"
 	colorPastelYellow = "#FFFDF5"
+	colorOrange       = "#FF8F00" // Nuevo color para Input Mode
 	colorGray         = "#767676"
 	colorLightGray    = "#A8A8A8"
 	colorDarkGray     = "#2e2e2e"
@@ -24,52 +29,49 @@ const (
 )
 
 var (
-	// Estilo base de la aplicación
-	appStyle = lipgloss.NewStyle().
-		Padding(0)
+	// Estilos de Breadcrumbs
+	dirStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorGray))
 
-	// 1. Header Inmersivo
-	headerStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorEmerald)).
-		Background(lipgloss.Color(colorCarbon)).
-		Bold(true).
-		Padding(0, 1).
-		BorderBottom(true).
-		BorderStyle(lipgloss.ThickBorder()).
-		BorderForeground(lipgloss.Color(colorHighlight))
+	fileStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorPastelYellow)).
+			Bold(true)
 
-	// 2. Styles for Manual Editor (Minimalist)
+	// Estilos de Modos (Indicadores)
+	editModeColor  = lipgloss.Color(colorEmerald)
+	readModeColor  = lipgloss.Color(colorBlue)
+	inputModeColor = lipgloss.Color(colorOrange)
+
+	// 2. Styles for Manual Editor
 	cursorLineStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color(colorHighlight)).
-		Foreground(lipgloss.Color("#FFFFFF"))
+			Background(lipgloss.Color(colorHighlight)).
+			Foreground(lipgloss.Color("#FFFFFF"))
 
 	placeholderStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorGray))
+				Foreground(lipgloss.Color(colorGray))
 
 	cursorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorPastelYellow))
+			Foreground(lipgloss.Color(colorPastelYellow))
 
-	// 3. Footer Styles (LazyVim / Airline inspired)
+	// 3. Footer Styles
 	statusBarStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorLightGray)).
-		Background(lipgloss.Color(colorDarkGray))
+			Foreground(lipgloss.Color(colorLightGray)).
+			Background(lipgloss.Color(colorDarkGray))
 
-	modeStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorCarbon)).
-		Background(lipgloss.Color(colorEmerald)).
-		Bold(true).
-		Padding(0, 1).
-		MarginRight(1)
+	baseModeStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorCarbon)).
+			Bold(true).
+			Padding(0, 1).
+			MarginRight(1)
 
 	shortcutStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorEmerald)).
-		Bold(true)
+			Bold(true)
 
 	positionStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorPastelYellow)).
-		Background(lipgloss.Color(colorDarkGray)).
-		Padding(0, 1).
-		MarginLeft(1)
+			Foreground(lipgloss.Color(colorPastelYellow)).
+			Background(lipgloss.Color(colorDarkGray)).
+			Padding(0, 1).
+			MarginLeft(1)
 )
 
 // --- Modelo ---
@@ -77,50 +79,58 @@ var (
 type EditorModel struct {
 	textarea     textarea.Model
 	viewport     viewport.Model
+	langInput    textinput.Model // Input para el lenguaje
 	renderer     *glamour.TermRenderer
 	filePath     string
 	err          error
-	notification string // Mensaje temporal para el usuario
+	notification string
 	width        int
 	height       int
 	renderMode   bool
+	askingLang   bool // ¿Estamos pidiendo el lenguaje?
 }
 
 func InitialModel(path string, content string) EditorModel {
-	// Configurar Editor
 	ti := textarea.New()
 	ti.Placeholder = "# Empieza tu nueva nota..."
 	ti.SetValue(content)
 	ti.Focus()
 
 	ti.Prompt = " "
-	ti.ShowLineNumbers = true // "IDE Feel" needs line numbers
+	ti.ShowLineNumbers = true
 	ti.FocusedStyle.CursorLine = cursorLineStyle
 	ti.FocusedStyle.Placeholder = placeholderStyle
 	ti.Cursor.Style = cursorStyle
 	ti.FocusedStyle.Base = lipgloss.NewStyle().Foreground(lipgloss.Color("#E0E0E0"))
 	ti.FocusedStyle.LineNumber = lipgloss.NewStyle().Foreground(lipgloss.Color(colorGray))
 
-	// Configurar Viewport
 	vp := viewport.New(0, 0)
-	vp.Style = lipgloss.NewStyle().Padding(0, 1) // Padding para lectura cómoda
+	vp.Style = lipgloss.NewStyle().Padding(0, 1)
 
-	// Inicializar renderer de Glamour (Dark Mode)
+	// Configurar Input de Lenguaje
+	li := textinput.New()
+	li.Placeholder = "go, js, py..."
+	li.Prompt = "Lenguaje: "
+	li.CharLimit = 20
+	li.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(colorOrange))
+	li.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(colorOrange)).Bold(true)
+
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(80), // Default safe wrap
+		glamour.WithWordWrap(80),
 	)
 
 	return EditorModel{
-		textarea: ti,
-		viewport: vp,
-		renderer: renderer,
-		filePath: path,
+		textarea:  ti,
+		viewport:  vp,
+		langInput: li,
+		renderer:  renderer,
+		filePath:  path,
 	}
 }
 
 func (m EditorModel) Init() tea.Cmd {
-	return textarea.Blink
+	return tea.Batch(textarea.Blink, textinput.Blink)
 }
 
 func (m EditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -131,26 +141,21 @@ func (m EditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-
-		// Ajuste de layout dinámico
-	headerHeight := 2
-		footerHeight := 2
-		newHeight := msg.Height - headerHeight - footerHeight
-
+		verticalMargins := 5
+		newHeight := msg.Height - verticalMargins
 		if newHeight < 0 {
 			newHeight = 0
 		}
+		newWidth := msg.Width - 4
 
-		m.textarea.SetWidth(msg.Width)
+		m.textarea.SetWidth(newWidth)
 		m.textarea.SetHeight(newHeight)
-
-		m.viewport.Width = msg.Width
+		m.viewport.Width = newWidth
 		m.viewport.Height = newHeight
 
-		// Re-iniciar renderer con el ancho correcto para word-wrapping
 		m.renderer, _ = glamour.NewTermRenderer(
 			glamour.WithStandardStyle("dark"),
-			glamour.WithWordWrap(msg.Width-4), // -4 por paddings
+			glamour.WithWordWrap(newWidth),
 		)
 
 		if m.renderMode {
@@ -159,58 +164,77 @@ func (m EditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		// Limpiar notificación al escribir
-		m.notification = ""
+		// Lógica exclusiva del Input Mode
+		if m.askingLang {
+			switch msg.String() {
+			case "enter":
+				lang := m.langInput.Value()
+				if lang == "" {
+					lang = "text"
+				}
+				
+				// Inserción Inteligente con bloque cerrado
+				snippet := fmt.Sprintf("\n```%s\n\n```", lang) 
 
+				// Insertamos el snippet completo. El cursor quedará al final.
+				m.textarea.InsertString(snippet)
+				
+				// Movemos el cursor ARRIBA una vez para quedar dentro del bloque
+				m.textarea.CursorUp()
+
+				m.askingLang = false
+				m.langInput.Reset()
+				
+				return m, m.textarea.Focus()
+				
+			case "esc":
+				m.askingLang = false
+				m.langInput.Reset()
+				return m, m.textarea.Focus()
+			}
+			m.langInput, cmd = m.langInput.Update(msg)
+			return m, cmd
+		}
+
+		m.notification = ""
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "esc":
 			if m.renderMode {
 				m.renderMode = false
-				m.textarea.Focus()
-				return m, nil
+				// Devolver foco al salir de modo lectura
+				return m, m.textarea.Focus()
 			}
-			return m, tea.Quit // Doble esc para salir
+			return m, tea.Quit
 		case "ctrl+s":
 			err := os.WriteFile(m.filePath, []byte(m.textarea.Value()), 0o644)
 			if err != nil {
 				m.err = err
-				m.notification = "❌ Error al guardar"
+				m.notification = "❌ Error"
 			} else {
-				m.notification = "✅ Archivo Guardado"
+				m.notification = "✅ Guardado"
 			}
-			// No salimos (tea.Quit), solo notificamos
 			return m, nil
 		case "ctrl+p":
 			m.renderMode = !m.renderMode
 			if m.renderMode {
-				// Renderizado PRO con Glamour
 				content, err := m.renderer.Render(m.textarea.Value())
 				if err != nil {
-					m.viewport.SetContent("Error rendering markdown: " + err.Error())
+					m.viewport.SetContent("Error: " + err.Error())
 				} else {
 					m.viewport.SetContent(content)
 				}
+				// Al entrar a lectura, quizás queramos limpiar foco, o no importa.
+				return m, nil
 			} else {
-				m.textarea.Focus()
+				// Al volver, recuperar foco
+				return m, m.textarea.Focus()
 			}
-			return m, nil
-		}
-
-		if !m.renderMode {
-			switch msg.String() {
-			case "ctrl+t":
-				m.textarea.InsertString("# ")
-				return m, nil // Stop propagation
-			case "ctrl+l":
-				m.textarea.InsertString("- ")
-				return m, nil // Stop propagation
-			case "ctrl+k":
-				m.textarea.InsertString("\n```go\n\n```") // Default to go
-				m.textarea.CursorUp()
-				m.textarea.CursorUp()
-				return m, nil // Stop propagation
+		case "ctrl+k", "ctrl+o": // Aceptamos ambos por si acaso
+			if !m.renderMode {
+				m.askingLang = true
+				return m, m.langInput.Focus()
 			}
 		}
 	}
@@ -227,9 +251,42 @@ func (m EditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m EditorModel) View() string {
-	// 1. Header
-	headerText := fmt.Sprintf("📝 GO-NOTES  |  %s", m.filePath)
-	header := headerStyle.Width(m.width).Render(headerText)
+	var accentColor lipgloss.Color
+	var modeName string
+	var icon string
+
+	// Lógica de colores y estados
+	if m.askingLang {
+		accentColor = inputModeColor
+		modeName = "INPUT"
+		icon = "⌨️"
+	} else if m.renderMode {
+		accentColor = readModeColor
+		modeName = "READER"
+		icon = "👁️"
+	} else {
+		accentColor = editModeColor
+		modeName = "EDITOR"
+		icon = "✏️"
+	}
+
+	// 1. Breadcrumb Header
+	dir, file := filepath.Split(m.filePath)
+	if dir == "" {
+		dir = "./"
+	}
+
+	headerContent := fmt.Sprintf("%s %s %s",
+		dirStyle.Render(dir),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(colorDarkGray)).Render("›"),
+		fileStyle.Render(file))
+
+	header := lipgloss.NewStyle().
+		Width(m.width - 4).
+		Padding(0, 1).
+		BorderBottom(true).
+		BorderForeground(lipgloss.Color(colorDarkGray)).
+		Render(headerContent)
 
 	// 2. Content
 	var content string
@@ -239,75 +296,66 @@ func (m EditorModel) View() string {
 		content = m.textarea.View()
 	}
 
-	// 3. Smart Footer
-	modeText := "EDITOR"
-	if m.renderMode {
-		modeText = "READER"
-	}
-	mode := modeStyle.Render(modeText)
-	fileInfo := statusBarStyle.Render(m.filePath)
+	// 3. Footer
+	modeBadge := baseModeStyle.
+		Background(accentColor).
+		Render(fmt.Sprintf("%s %s", icon, modeName))
 
-	// Posición del Cursor (Línea)
 	cursorRow := m.textarea.Line() + 1
 	totalLines := m.textarea.LineCount()
-	posText := fmt.Sprintf("Ln %d  %d%%", cursorRow, int(float64(cursorRow)/float64(totalLines)*100))
-	position := positionStyle.Render(posText)
+	textValue := m.textarea.Value()
+	wordCount := len(strings.Fields(textValue))
+
+	statsText := fmt.Sprintf("Ln %d/%d │ %dw", cursorRow, totalLines, wordCount)
+	stats := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colorGray)).
+		Render(statsText)
+
+	// --- Centro del Footer (Dinámico) ---
+	var centerMsg string
 	
-	// Área Central del Footer (Notificaciones o Atajos)
-	var centerContent string
-	
-	if m.notification != "" {
-		// Mostrar Notificación Prioritaria
-		centerContent = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorEmerald)).
-			Bold(true).
-			Render(m.notification)
+	if m.askingLang {
+		// Mostrar INPUT FIELD
+		centerMsg = m.langInput.View()
+	} else if m.notification != "" {
+		centerMsg = lipgloss.NewStyle().Foreground(accentColor).Bold(true).Render(m.notification)
 	} else {
-		// Mostrar Atajos
-		baseShortcuts := fmt.Sprintf("%s Guardar %s Salir %s Vista",
-			shortcutStyle.Render("Ctrl+S"),
-			shortcutStyle.Render("Esc"),
-			shortcutStyle.Render("Ctrl+P"),
-		)
-		
-		var extraShortcuts string
-		if !m.renderMode {
-			extraShortcuts = fmt.Sprintf(" | %s Título %s Lista %s Código",
-				shortcutStyle.Render("^T"),
-				shortcutStyle.Render("^L"),
-				shortcutStyle.Render("^K"),
-			)
-		}
-		centerContent = baseShortcuts + extraShortcuts
+		centerMsg = lipgloss.NewStyle().Foreground(lipgloss.Color(colorDarkGray)).Render("^S Save  ^O Code  ^P View")
 	}
 
-	// Layout del Footer: Mode | File ... Center ... Position
-	leftSide := lipgloss.JoinHorizontal(lipgloss.Center, mode, fileInfo)
-	
-	// Espaciador flexible
-	// Calculamos el espacio restante para centrar el contenido o simplemente rellenar
-	availWidth := m.width - lipgloss.Width(leftSide) - lipgloss.Width(position)
-	if availWidth < 0 { availWidth = 0 }
-	
-	// Renderizamos el contenido central en el medio del espacio disponible
-	centerArea := statusBarStyle.Width(availWidth).Align(lipgloss.Center).Render(centerContent)
+	footerWidth := m.width - 4
+	leftWidth := lipgloss.Width(modeBadge)
+	rightWidth := lipgloss.Width(stats)
+	centerWidth := lipgloss.Width(centerMsg)
 
-	footer := lipgloss.JoinHorizontal(lipgloss.Center, 
-		statusBarStyle.Render(leftSide), 
-		centerArea, 
-		statusBarStyle.Render(position),
+	gap1 := (footerWidth - leftWidth - rightWidth - centerWidth) / 2
+	if gap1 < 1 {
+		gap1 = 1
+	}
+
+	gap2 := footerWidth - leftWidth - rightWidth - centerWidth - gap1
+	if gap2 < 1 {
+		gap2 = 1
+	}
+
+	footer := lipgloss.JoinHorizontal(lipgloss.Center,
+		modeBadge,
+		lipgloss.NewStyle().Width(gap1).Render(""),
+		centerMsg,
+		lipgloss.NewStyle().Width(gap2).Render(""),
+		stats,
 	)
 
-	if m.err != nil {
-		footer = statusBarStyle.Width(m.width).
-			Background(lipgloss.Color("#FF0000")).
-			Render(fmt.Sprintf("ERROR: %v", m.err))
-	}
-
-	return lipgloss.JoinVertical(
+	mainView := lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
 		content,
-		footer,
+		lipgloss.NewStyle().BorderTop(true).BorderForeground(lipgloss.Color(colorDarkGray)).Width(footerWidth).Render(footer),
 	)
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(accentColor).
+		Width(m.width - 2).
+		Render(mainView)
 }

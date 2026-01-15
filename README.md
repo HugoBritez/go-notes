@@ -1,56 +1,53 @@
 # go-notes 🚀
 
-**go-notes** es un editor de notas para la terminal diseñado para desarrolladores que buscan la velocidad de una CLI con la elegancia visual de herramientas como Notion u Obsidian.
+**go-notes** es un editor de notas para la terminal diseñado para desarrolladores que buscan la velocidad de una CLI con la elegancia visual de herramientas modernas como Obsidian, pero viviendo 100% en tu terminal.
 
-Escrito totalmente en **Go**, utiliza el framework de TUI **Bubble Tea** para ofrecer una experiencia interactiva, fluida y moderna.
+Escrito totalmente en **Go**, utiliza el ecosistema **Charm** (Bubble Tea, Lip Gloss, Glamour) para ofrecer una experiencia TUI (Text User Interface) "Premium".
 
-## ✨ Características (Roadmap)
+## ✨ Características Principales
 
-- [x] **Path Discovery**: Crea notas y carpetas dinámicamente (`note facu/algebra/clase1`).
-- [x] **Persistencia Local**: Tus notas son archivos `.md` estándar, tú eres el dueño de tus datos.
-- [x] **Zero Config**: Inicialización rápida con `go-notes init`.
-- [p] **Notion-look (En progreso)**: Renderizado de Markdown en tiempo real con estilos y colores.
-- [ ] **Buscador Integrado**: Integración nativa con FZF para encontrar notas al instante.
-- [ ] **Exportación**: Convertir notas a PDF o HTML desde la CLI.
+- **Dual Mode UI:**
+  - ✏️ **Editor:** Interfaz minimalista para escritura rápida sin distracciones.
+  - 👁️ **Reader:** Renderizado Markdown profesional en tiempo real (Tablas, Código Coloreado, Listas, etc.) usando `glamour`.
+- **Smart Snippets:** Inserción inteligente de bloques de código (`Ctrl+O`) con autocompletado de lenguaje y posicionamiento de cursor.
+- **UI Reactiva:**
+  - Bordes dinámicos que cambian de color según el modo (Esmeralda/Azul/Naranja).
+  - Footer estilo "LazyVim" con conteo de palabras, caracteres y posición de línea.
+  - Header con breadcrumbs estilizados (`carpeta › archivo`).
+- **Path Discovery**: Crea estructuras de carpetas dinámicamente al vuelo (`note facu/algebra/clase1`).
+- **Zero Lock-in**: Tus notas son archivos `.md` planos estándar.
 
-## 🚀 Instalación rápida
+## 🚀 Instalación y Uso
 
-1. Clona el repositorio:
+1. **Clona el repositorio:**
    ```bash
-   git clone [https://github.com/tu-usuario/go-notes.git](https://github.com/tu-usuario/go-notes.git)
+   git clone https://github.com/tu-usuario/go-notes.git
    cd go-notes
-Instala las dependencias y compila:
+   ```
 
-Bash
+2. **Ejecuta directamente:**
+   ```bash
+   go run main.go [ruta/de/tu/nota]
+   ```
+   *Ejemplo:* `go run main.go ideas/app_revolutionaria`
 
-go mod tidy
-go build -o go-notes main.go
-🛠️ Cómo usarlo
-1. Inicializar
-Define dónde quieres que vivan tus notas:
+## ⌨️ Atajos de Teclado
 
-Bash
+| Atajo | Acción | Descripción |
+| :--- | :--- | :--- |
+| **Ctrl + S** | `Guardar` | Guarda el archivo y muestra confirmación visual. |
+| **Ctrl + P** | `Vista` | Alterna entre **Modo Editor** y **Modo Lectura** (Preview). |
+| **Ctrl + O** | `Smart Code` | Abre el menú para insertar bloques de código (`go`, `js`, `py`...). |
+| **Esc** | `Salir/Volver` | Sale del input/modo lectura o cierra la app. |
+| **Ctrl + C** | `Forzar Salida` | Cierra la aplicación inmediatamente. |
 
-./go-notes init ~/Documents/notas
-2. Crear o Editar una nota
-Bash
+## 🛠️ Tech Stack
 
-./go-notes facu/matematica/clase1
-Si las carpetas no existen, go-notes las creará por ti.
+- **Core:** [Go](https://go.dev/)
+- **TUI Framework:** [Bubble Tea](https://github.com/charmbracelet/bubbletea)
+- **Estilos:** [Lip Gloss](https://github.com/charmbracelet/lipgloss)
+- **Renderizado Markdown:** [Glamour](https://github.com/charmbracelet/glamour)
+- **Componentes:** [Bubbles](https://github.com/charmbracelet/bubbles)
 
-3. Atajos dentro del editor
-Ctrl + S: Guardar y salir.
-
-Esc / Ctrl + C: Salir sin guardar.
-
-🛠️ Tech Stack
-Lenguaje: Go
-
-TUI Framework: Bubble Tea
-
-Estilos: Lip Gloss
-
-CLI Helpers: Bubbles
-
-🤝 Contribuir
-¡Este es un proyecto Open Source! Si tienes ideas para el renderizado tipo Notion, integración con bases de datos o simplemente quieres mejorar la UI, las Pull Requests son bienvenidas.
+---
+*Hecho con ❤️ y mucho café.*
